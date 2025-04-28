@@ -1,0 +1,16 @@
+[package]
+name = "binance-future-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rust_decimal = "1"
+base_util = { path = "../base-util" }
+env_logger = "0.11.6"
+tokio = { version = "1", features = ["full", "tracing"] }
+log = "0.4.27"
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+uuid = { version = "1", features = ["v4", "fast-rng"] }
+dashmap = "7.0.0-rc2"

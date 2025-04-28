@@ -1,0 +1,16 @@
+[package]
+name = "base_util"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures-util = "0.3"
+log = "0.4"
+tokio = { version = "1", features = ["full", "tracing"] }
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+rand = "0.9"
+ring = "0.17"
+hex = "0.4"
+
+[dev-dependencies]
+env_logger = "0.11.6"
