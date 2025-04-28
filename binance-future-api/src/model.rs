@@ -37,7 +37,7 @@ pub struct ErrorResponse {
 pub enum ResultType {
     Order(OrderResp),
     PositionRisk(Vec<PositionRiskResp>),
-    UserDataStream(UserDataStream),
+    UserDataStream(UserDataStreamResp),
     ServerTime(ServerTime),
     EmptyBody(EmptyBody),
 }
@@ -209,7 +209,7 @@ pub struct OrderResp {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct UserDataStream {
+pub struct UserDataStreamResp {
     pub listen_key: String,
 }
 
@@ -252,6 +252,195 @@ pub struct PositionRiskResp {
     //  though 0, could be a float in other cases
     pub ask_notional: String,
     pub update_time: u64,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BookTickers {
+    pub symbol: String,
+    #[serde(with = "string_or_float")]
+    pub bid_price: f64,
+    #[serde(with = "string_or_float")]
+    pub bid_qty: f64,
+    #[serde(with = "string_or_float")]
+    pub ask_price: f64,
+    #[serde(with = "string_or_float")]
+    pub ask_qty: f64,
+}
+
+
+/// Rate Limit Interval, used by RateLimitType
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RateLimitInterval {
+    Second,
+    Minute,
+    Day,
+}
+
+/// API Rate Limit
+/// Example
+/// {
+///   "rateLimitType": "REQUEST_WEIGHT",
+///   "interval": "MINUTE",
+///   "intervalNum": 1,
+///   "limit": 1200
+/// }
+///
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RateLimitType {
+    RequestWeight,
+    Orders,
+    RawRequests,
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RestRateLimit {
+    pub interval: RateLimitInterval,
+    pub rate_limit_type: RateLimitType,
+    pub interval_num: i32,
+    pub limit: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "filterType")]
+pub enum Filters {
+    #[serde(rename = "PRICE_FILTER")]
+    #[serde(rename_all = "camelCase")]
+    PriceFilter {
+        // #[serde(with = "string_or_float")]
+        min_price: String,
+        // #[serde(with = "string_or_float")]
+        max_price: String,
+        // #[serde(with = "string_or_float")]
+        tick_size: String,
+    },
+    #[serde(rename = "LOT_SIZE")]
+    #[serde(rename_all = "camelCase")]
+    LotSize {
+        // #[serde(with = "string_or_float")]
+        min_qty: String,
+        // #[serde(with = "string_or_float")]
+        max_qty: String,
+        // #[serde(with = "string_or_float")]
+        step_size: String,
+    },
+    #[serde(rename = "MARKET_LOT_SIZE")]
+    #[serde(rename_all = "camelCase")]
+    MarketLotSize {
+        min_qty: String,
+        max_qty: String,
+        step_size: String,
+    },
+    #[serde(rename = "MAX_NUM_ORDERS")]
+    #[serde(rename_all = "camelCase")]
+    MaxNumOrders { limit: u16 },
+    #[serde(rename = "MAX_NUM_ALGO_ORDERS")]
+    #[serde(rename_all = "camelCase")]
+    MaxNumAlgoOrders { limit: u16 },
+    #[serde(rename = "MIN_NOTIONAL")]
+    #[serde(rename_all = "camelCase")]
+    MinNotional {
+        // #[serde(with = "string_or_float")]
+        notional: String,
+    },
+    #[serde(rename = "PERCENT_PRICE")]
+    #[serde(rename_all = "camelCase")]
+    PercentPrice {
+        // #[serde(with = "string_or_float")]
+        multiplier_up: String,
+        // #[serde(with = "string_or_float")]
+        multiplier_down: String,
+        // #[serde(with = "string_or_float")]
+        multiplier_decimal: String,
+    },
+    #[serde(other)]
+    Others,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetDetail {
+    pub asset: String,
+    pub margin_available: bool,
+    #[serde(with = "string_or_float")]
+    pub auto_asset_exchange: f64,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ContractType {
+    Perpetual,
+    CurrentMonth,
+    NextMonth,
+    CurrentQuarter,
+    NextQuarter,
+    #[serde(rename = "CURRENT_QUARTER DELIVERING")]
+    CurrentQuarterDelivery,
+    PerpetualDelivering,
+    #[serde(rename = "")]
+    Empty,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Symbol {
+    pub symbol: String,
+    pub pair: String,
+    pub contract_type: ContractType,
+    pub delivery_date: u64,
+    pub onboard_date: u64,
+    pub status: SymbolStatus,
+    #[serde(with = "string_or_float")]
+    pub maint_margin_percent: f64,
+    #[serde(with = "string_or_float")]
+    pub required_margin_percent: f64,
+    pub base_asset: String,
+    pub quote_asset: String,
+    pub price_precision: u16,
+    pub quantity_precision: u16,
+    pub base_asset_precision: u64,
+    pub quote_precision: u64,
+    pub underlying_type: String,
+    pub underlying_sub_type: Vec<String>,
+    pub settle_plan: Option<u64>,
+    #[serde(with = "string_or_float")]
+    pub trigger_protect: f64,
+    pub filters: Vec<Filters>,
+    pub order_types: Vec<OrderType>,
+    pub time_in_force: Vec<TimeInForce>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SymbolStatus {
+    PreTrading,
+    Trading,
+    PostTrading,
+    EndOfDay,
+    Halt,
+    AuctionMatch,
+    Break,
+    PendingTrading,
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ExchangeInformation {
+    pub timezone: String,
+    pub server_time: u64,
+    pub futures_type: String,
+    pub rate_limits: Vec<RestRateLimit>,
+    pub exchange_filters: Vec<Filters>,
+    pub assets: Vec<AssetDetail>,
+    pub symbols: Vec<Symbol>,
 }
 
 // test mod
