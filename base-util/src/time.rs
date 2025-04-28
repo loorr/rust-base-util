@@ -18,7 +18,7 @@ pub fn current_time_micros() -> i64 {
         .unwrap_or(0)
 }
 
-pub fn current_time_millis() -> i64 {
+pub fn current_time_millis() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("don't use clocks from before 1970")

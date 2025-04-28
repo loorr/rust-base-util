@@ -6,10 +6,9 @@ use std::time::Duration;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{interval, sleep};
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::tungstenite::Utf8Bytes;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use tungstenite::client::IntoClientRequest;
-use tungstenite::Utf8Bytes;
-
 
 /// WebSocket client
 /// params:
@@ -248,11 +247,10 @@ impl Drop for WsClient {
 
 #[cfg(test)]
 mod test {
-    use std::time::Instant;
     use super::*;
     use log::info;
+    use std::time::Instant;
     use tokio::runtime::Runtime;
-    use tungstenite::Utf8Bytes;
 
     fn setup() -> Runtime {
         let _ = env_logger::init();
