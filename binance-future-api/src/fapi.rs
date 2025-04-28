@@ -1,15 +1,16 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use log::{debug, error, info};
 use reqwest::{Client, Method};
 use tokio::time::{Duration, Instant};
-
-use crate::model::{BookTickers, EmptyBody, ExchangeInformation, ServerTime, UserDataStreamResp};
-use crate::req_param::KeyPair;
+use base_util::time::current_time_millis;
+use crate::model::{BookTickers, EmptyBody, ExchangeInformation, PositionRiskResp, ServerTime, UserDataStreamResp};
+use crate::req_param::{KeyPair};
 
 // ms
 const DEFAULT_TIMEOUT: u64 = 10_000;
-const DEFAULT_RECV_WINDOW: u64 = 5000;
+const DEFAULT_RECV_WINDOW: u64 = 9999_999;
 const DEFAULT_MBX_APIKEY: &str = "X-MBX-APIKEY";
 
 
@@ -38,6 +39,7 @@ impl FuturesApi {
         }
     }
 
+    /// /fapi/v1/time
     pub async fn get_server_time(&self) -> Result<ServerTime, String> {
         let uri = "/fapi/v1/time";
         let s = Instant::now();
@@ -47,21 +49,25 @@ impl FuturesApi {
         result
     }
 
+    /// /fapi/v1/listenKey
     pub async fn start(&self) -> Result<UserDataStreamResp, String> {
         let uri = "/fapi/v1/listenKey";
         self.send_request::<UserDataStreamResp>(Method::POST, uri).await
     }
 
+    /// /fapi/v1/listenKey
     pub async fn keep_alive(&self) -> Result<UserDataStreamResp, String> {
         let uri = "/fapi/v1/listenKey";
         self.send_request::<UserDataStreamResp>(Method::PUT, &uri).await
     }
 
+    /// /fapi/v1/listenKey
     pub async fn close(&self) -> Result<EmptyBody, String> {
         let uri = "/fapi/v1/listenKey";
         self.send_request::<EmptyBody>(Method::DELETE, &uri).await
     }
 
+    /// /fapi/v1/ticker/bookTicker
     pub async fn book_ticker(&self, symbol: &str) -> Result<BookTickers, String> {
         let uri = format!("/fapi/v1/ticker/bookTicker?symbol={}", symbol);
         self.send_request::<BookTickers>(Method::GET, &uri).await
@@ -71,6 +77,17 @@ impl FuturesApi {
     pub async fn exchange_info(&self) -> Result<ExchangeInformation, String> {
         let uri = "/fapi/v1/exchangeInfo";
         self.send_request::<ExchangeInformation>(Method::GET, &uri).await
+    }
+
+    /// /fapi/v3/positionRisk
+    pub async fn position_risk(&self, symbol: &str) -> Result<Vec<PositionRiskResp>, String> {
+        let mut params_map = HashMap::new();
+        params_map.insert("symbol", symbol.to_lowercase());
+        params_map.insert("recvWindow", self.recv_window.unwrap_or(DEFAULT_RECV_WINDOW).to_string());
+        params_map.insert("timestamp", current_time_millis().to_string());
+        let params_str = self.key_pair.signature(&params_map);
+        let uri = format!("/fapi/v3/positionRisk?{}", params_str);
+        self.send_request::<Vec<PositionRiskResp>>(Method::GET, &uri).await
     }
 
     async fn send_request<T: serde::de::DeserializeOwned + std::fmt::Debug>(
@@ -103,7 +120,7 @@ impl FuturesApi {
             Ok(response) => {
                 if response.status().is_success() {
                     let json = response.json().await;
-                    debug!("request url: {}|{}| response: {:?}", method, url, json);
+                    info!("request url: {}|{}| response: {:?}", method, url, json);
                     match json {
                         Ok(parsed) => Ok(parsed),
                         Err(err) => {
@@ -213,6 +230,16 @@ mod tests {
         let api = FuturesApi::new(base_url.as_str(), Arc::new(key_pair), None, None);
         match api.exchange_info().await {
             Ok(resp) => println!("{:?}", resp),
+            Err(e) => eprintln!("Error: {}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_position_risk() {
+        let (key_pair, base_url) = init();
+        let api = FuturesApi::new(base_url.as_str(), Arc::new(key_pair), None, None);
+        match api.position_risk("BTCUSDT").await {
+            Ok(resp) => println!("{:#?}", resp),
             Err(e) => eprintln!("Error: {}", e),
         }
     }

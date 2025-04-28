@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use log::{debug, error};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,19 @@ const DEFAULT_RECV_WINDOW: u64 = 99999999;
 pub struct KeyPair {
     pub api_key: String,
     pub secret_key: String,
+}
+
+impl KeyPair {
+    pub fn signature(&self, params_map: &HashMap<&str, String>) -> String {
+        let mut sign_string = vec![];
+        for (key, value) in params_map {
+            sign_string.push(format!("{}={}", key, value));
+        }
+        sign_string.sort_by(|a, b| a.split('=').next().cmp(&b.split('=').next()));
+        let sign_row = sign_string.join("&");
+        debug!("sign row: {}", sign_row);
+        return format!("{}&signature={}", sign_row, signature(self.secret_key.as_bytes(), sign_row.clone()));
+    }
 }
 
 pub trait Signature {
