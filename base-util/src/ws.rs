@@ -1,14 +1,15 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{interval, sleep};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Utf8Bytes;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 /// WebSocket client
 /// params:
@@ -118,6 +119,7 @@ impl WsClient {
                                 message_to_send = write_rx.recv() => {
                                     match message_to_send {
                                         Ok(message) => {
+                                            println!("[{}] Sending message: {:?}", &name_send, message);
                                             if let Err(e) = write.send(message).await {
                                                 error!("Error sending message: {}", e);
                                                 break;
@@ -247,10 +249,12 @@ impl Drop for WsClient {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use log::info;
     use std::time::Instant;
+
+    use log::info;
     use tokio::runtime::Runtime;
+
+    use super::*;
 
     fn setup() -> Runtime {
         let _ = env_logger::init();

@@ -26,9 +26,9 @@ pub struct ErrorDetail {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponse {
-    pub id: String,
-    pub status: u16,
-    pub rate_limits: Vec<RateLimit>,
+    pub id: Option<String>,
+    pub status: u32,
+    pub rate_limits: Option<Vec<RateLimit>>,
     pub error: ErrorDetail,
 }
 
@@ -56,7 +56,7 @@ pub struct SuccessResponse {
 pub enum ApiResponse {
     Error(ErrorResponse),
     Success(SuccessResponse),
-    RawData(serde_json::Value) // 兜底类型
+    RawData(serde_json::Value), // 兜底类型
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -257,7 +257,7 @@ pub struct PositionRiskResp {
 // test mod
 #[cfg(test)]
 mod test {
-    use crate::model::{SuccessResponse, OrderResp};
+    use crate::model::{ErrorResponse, OrderResp, SuccessResponse};
 
     #[test]
     fn test() {
@@ -397,5 +397,18 @@ mod test {
         "#;
 
         let _response: SuccessResponse = serde_json::from_str(json_str).unwrap();
+    }
+
+    #[test]
+    fn test_error() {
+        let json_str = r#"{
+            "id": null,
+            "status": 400,
+            "error": {
+                "code": -1000,
+                "msg": "Invalid 'id' in JSON request; expected an integer, a string matching '^[a-zA-Z0-9-_]{1,36}$', or null."
+            }
+        }"#;
+        let _response: ErrorResponse = serde_json::from_str(json_str).unwrap();
     }
 }

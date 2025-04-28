@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-pub fn current_time_nanos() -> i64 {
+pub fn current_time_nanos() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("don't use clocks from before 1970")

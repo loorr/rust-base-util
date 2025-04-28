@@ -31,6 +31,7 @@ pub trait Signature {
     }
 }
 
+#[derive(Debug)]
 pub enum WsReqMethod {
     OrderPlace(OrderPlace),
     CancelOrder(CancelOrder),
@@ -94,7 +95,6 @@ impl BaseReq {
             WsReqMethod::Ping => {
                 base_req.method = "v1/ping".to_string();
             }
-            _ => {}
         }
 
         base_req
