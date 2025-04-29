@@ -2,7 +2,7 @@ use log::{debug, error};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
+use std::sync::Arc;
 use base_util::signature::signature;
 use base_util::time::current_time_millis;
 
@@ -10,6 +10,7 @@ use crate::model::{OrderSide, PositionSide, TimeInForce};
 
 const DEFAULT_RECV_WINDOW: u64 = 99999999;
 
+#[derive(Debug, Clone)]
 pub struct KeyPair {
     pub api_key: String,
     pub secret_key: String,
@@ -23,7 +24,7 @@ impl KeyPair {
         }
         sign_string.sort_by(|a, b| a.split('=').next().cmp(&b.split('=').next()));
         let sign_row = sign_string.join("&");
-        debug!("sign row: {}", sign_row);
+        println!("sign row: {}", sign_row);
         return format!(
             "{}&signature={}",
             sign_row,
@@ -41,8 +42,8 @@ impl KeyPair {
 }
 
 pub trait Signature {
-    fn sign(&mut self, key_pair: &KeyPair) -> String;
-    fn set_api_key(&mut self, key_pair: &KeyPair);
+    fn sign(&mut self, key_pair: Arc<KeyPair>) -> String;
+    fn set_api_key(&mut self, key_pair: Arc<KeyPair>);
     fn set_timestamp(&mut self, timestamp: Option<u64>);
     fn set_signature(&mut self, signature: Option<String>);
 
@@ -142,43 +143,43 @@ impl BaseReq {
 pub struct OrderPlace {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
-    symbol: String,
-    side: OrderSide,
+    pub symbol: String,
+    pub side: OrderSide,
     #[serde(skip_serializing_if = "Option::is_none")]
-    position_side: Option<PositionSide>, // 持仓方向,单向持仓模式下非必填,默认且仅可填BOTH;在双向持仓模式下必填,且仅可选择 LONG 或 SHORT
+    pub position_side: Option<PositionSide>, // 持仓方向,单向持仓模式下非必填,默认且仅可填BOTH;在双向持仓模式下必填,且仅可选择 LONG 或 SHORT
     #[serde(rename = "type")]
-    order_type: String,
+    pub order_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    reduce_only: Option<String>,
+    pub reduce_only: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    quantity: Option<Decimal>, // 以合约数量计量的下单数量，使用closePosition不支持此参数。
+    pub quantity: Option<Decimal>, // 以合约数量计量的下单数量，使用closePosition不支持此参数。
     #[serde(skip_serializing_if = "Option::is_none")]
-    price: Option<String>, // 价格
+    pub price: Option<String>, // 价格
     #[serde(skip_serializing_if = "Option::is_none")]
-    new_client_order_id: Option<String>,
+    pub new_client_order_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    stop_price: Option<String>,
+    pub stop_price: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    close_position: Option<String>,
+    pub close_position: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    activation_price: Option<String>,
+    pub activation_price: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    callback_rate: Option<String>, // [0.1, 4]
+    pub callback_rate: Option<String>, // [0.1, 4]
     #[serde(skip_serializing_if = "Option::is_none")]
-    time_in_force: Option<TimeInForce>,
+    pub time_in_force: Option<TimeInForce>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    working_type: Option<String>, // MARK_PRICE or CONTRACT_PRICE
+    pub working_type: Option<String>, // MARK_PRICE or CONTRACT_PRICE
     #[serde(skip_serializing_if = "Option::is_none")]
-    price_protect: Option<String>, // "TRUE" or "FALSE"
+    pub price_protect: Option<String>, // "TRUE" or "FALSE"
     #[serde(skip_serializing_if = "Option::is_none")]
-    new_order_resp_type: Option<String>, // "ACK", "RESULT", "FULL"
+    pub new_order_resp_type: Option<String>, // "ACK", "RESULT", "FULL"
     #[serde(skip_serializing_if = "Option::is_none")]
-    recv_window: Option<u64>,
+    pub recv_window: Option<u64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    price_match: Option<String>,
+    pub price_match: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    self_trade_prevention_mode: Option<String>,
+    pub self_trade_prevention_mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -186,66 +187,8 @@ pub struct OrderPlace {
 }
 
 impl OrderPlace {
-    pub fn place_market(
-        key_pair: &KeyPair,
-        symbol: &str,
-        side: &OrderSide,
-        position_side: &PositionSide,
-        quantity: &Decimal,
-        new_client_order_id: Option<&str>,
-    ) -> Self {
-        let mut req = OrderPlace {
-            api_key: Some(key_pair.api_key.clone()),
-            symbol: symbol.to_string(),
-            side: side.clone(),
-            position_side: Some(position_side.clone()),
-            order_type: "MARKET".to_string(),
-            quantity: Some(quantity.clone()),
-            new_client_order_id: new_client_order_id.map(|s| s.to_string()),
-            new_order_resp_type: Some("RESULT".to_string()),
-            recv_window: Some(9999_9999),
-            timestamp: Some(current_time_millis()),
-            ..Default::default()
-        };
-        let sign = req.sign(key_pair);
-        req.set_signature(Some(sign));
-        req
-    }
 
-    pub fn place_limit(
-        key_pair: &KeyPair,
-        symbol: &str,
-        side: &OrderSide,
-        position_side: &PositionSide,
-        quantity: &Decimal,
-        price: &Decimal,
-        new_client_order_id: Option<&str>,
-        time_in_force: TimeInForce,
-        recv_window: Option<u64>,
-    ) -> Self {
-        let mut req = OrderPlace {
-            api_key: Some(key_pair.api_key.clone()),
-            symbol: symbol.to_string(),
-            side: side.clone(),
-            position_side: Some(position_side.clone()),
-            order_type: "LIMIT".to_string(),
-            quantity: Some(quantity.clone()),
-            price: Some(price.to_string()),
-            new_client_order_id: new_client_order_id.map(|s| s.to_string()),
-            new_order_resp_type: Some("ACK".to_string()),
-            recv_window,
-            timestamp: Some(current_time_millis()),
-            time_in_force: Some(time_in_force),
-            ..Default::default()
-        };
-        let sign = req.sign(key_pair);
-        req.set_signature(Some(sign));
-        req
-    }
-}
-
-impl Signature for OrderPlace {
-    fn sign(&mut self, key_pair: &KeyPair) -> String {
+    pub fn params_row(&mut self) -> String {
         let mut sign_string = vec![];
         if let Some(api_key) = &self.api_key {
             sign_string.push(format!("apiKey={}", api_key))
@@ -307,18 +250,86 @@ impl Signature for OrderPlace {
         sign_string.push(format!("type={}", self.order_type));
         match self.timestamp {
             None => {
-                sign_string.push(format!("timestamp={}", current_time_millis()));
+                self.timestamp = Some(current_time_millis());
+                sign_string.push(format!("timestamp={}", self.timestamp.unwrap()));
             }
             Some(time) => {
                 sign_string.push(format!("timestamp={}", time));
             }
         }
         sign_string.sort_by(|a, b| a.split('=').next().cmp(&b.split('=').next()));
-        let sign_row = sign_string.join("&");
+        let r = sign_string.join("&");
+        r
+    }
+    pub fn place_market(
+        key_pair: Arc<KeyPair>,
+        symbol: &str,
+        side: &OrderSide,
+        position_side: &PositionSide,
+        quantity: &Decimal,
+        new_client_order_id: Option<&str>,
+    ) -> Self {
+        let mut req = OrderPlace {
+            api_key: Some(key_pair.api_key.clone()),
+            // api_key: None,
+            symbol: symbol.to_string(),
+            side: side.clone(),
+            position_side: Some(position_side.clone()),
+            order_type: "MARKET".to_string(),
+            quantity: Some(quantity.clone()),
+            new_client_order_id: new_client_order_id.map(|s| s.to_string()),
+            new_order_resp_type: Some("RESULT".to_string()),
+            recv_window: Some(9999_9999),
+            timestamp: Some(current_time_millis()),
+            // timestamp: None,
+            ..Default::default()
+        };
+        let sign = req.sign(key_pair);
+        req.set_signature(Some(sign));
+        req
+    }
+
+    pub fn place_limit(
+        key_pair: Arc<KeyPair>,
+        symbol: &str,
+        side: &OrderSide,
+        position_side: &PositionSide,
+        quantity: &Decimal,
+        price: &Decimal,
+        new_client_order_id: Option<&str>,
+        time_in_force: TimeInForce,
+        recv_window: Option<u64>,
+    ) -> Self {
+        let mut req = OrderPlace {
+            api_key: Some(key_pair.api_key.clone()),
+            // api_key: None,
+            symbol: symbol.to_string(),
+            side: side.clone(),
+            position_side: Some(position_side.clone()),
+            order_type: "LIMIT".to_string(),
+            quantity: Some(quantity.clone()),
+            price: Some(price.to_string()),
+            new_client_order_id: new_client_order_id.map(|s| s.to_string()),
+            new_order_resp_type: Some("ACK".to_string()),
+            recv_window,
+            timestamp: Some(current_time_millis()),
+            // timestamp: None,
+            time_in_force: Some(time_in_force),
+            ..Default::default()
+        };
+        let sign = req.sign(key_pair);
+        req.set_signature(Some(sign));
+        req
+    }
+}
+
+impl Signature for OrderPlace {
+    fn sign(&mut self, key_pair: Arc<KeyPair>) -> String {
+        let sign_row = self.params_row();
         debug!("sign row: {}", sign_row);
         signature(key_pair.secret_key.as_bytes(), sign_row.as_str())
     }
-    fn set_api_key(&mut self, key_pair: &KeyPair) {
+    fn set_api_key(&mut self, key_pair: Arc<KeyPair>) {
         self.api_key = Some(key_pair.api_key.clone());
     }
 
@@ -355,7 +366,7 @@ pub struct CancelOrder {
 
 impl CancelOrder {
     pub fn new(
-        key_pair: &KeyPair,
+        key_pair: Arc<KeyPair>,
         symbol: &str,
         order_id: Option<u64>,
         orig_client_order_id: Option<&str>,
@@ -377,7 +388,7 @@ impl CancelOrder {
 }
 
 impl Signature for CancelOrder {
-    fn sign(&mut self, key_pair: &KeyPair) -> String {
+    fn sign(&mut self, key_pair: Arc<KeyPair>) -> String {
         let mut sign_string = vec![];
         if let Some(api_key) = &self.api_key {
             sign_string.push(format!("apiKey={}", api_key))
@@ -402,7 +413,7 @@ impl Signature for CancelOrder {
         signature(key_pair.secret_key.as_bytes(), sign_row.as_str())
     }
 
-    fn set_api_key(&mut self, key: &KeyPair) {
+    fn set_api_key(&mut self, key: Arc<KeyPair>) {
         self.api_key = Some(key.api_key.clone());
     }
 
@@ -430,7 +441,7 @@ pub struct PositionRisk {
 }
 
 impl PositionRisk {
-    pub fn new(key_pair: &KeyPair, symbol: Option<String>, recv_window: Option<u64>) -> Self {
+    pub fn new(key_pair: Arc<KeyPair>, symbol: Option<String>, recv_window: Option<u64>) -> Self {
         let mut req = PositionRisk {
             api_key: Some(key_pair.api_key.clone()),
             symbol,
@@ -444,7 +455,7 @@ impl PositionRisk {
 }
 
 impl Signature for PositionRisk {
-    fn sign(&mut self, key_pair: &KeyPair) -> String {
+    fn sign(&mut self, key_pair: Arc<KeyPair>) -> String {
         let mut sign_string = vec![];
         if let Some(api_key) = &self.api_key {
             sign_string.push(format!("apiKey={}", api_key))
@@ -464,7 +475,7 @@ impl Signature for PositionRisk {
         signature(key_pair.secret_key.as_bytes(), sign_row.as_str())
     }
 
-    fn set_api_key(&mut self, key: &KeyPair) {
+    fn set_api_key(&mut self, key: Arc<KeyPair>) {
         self.api_key = Some(key.api_key.clone());
     }
 
@@ -496,7 +507,7 @@ pub struct OrderStatus {
 
 impl OrderStatus {
     pub fn new(
-        key_pair: &KeyPair,
+        key_pair: Arc<KeyPair>,
         symbol: &str,
         order_id: Option<u64>,
         orig_client_order_id: Option<&str>,
@@ -518,7 +529,7 @@ impl OrderStatus {
 }
 
 impl Signature for OrderStatus {
-    fn sign(&mut self, key_pair: &KeyPair) -> String {
+    fn sign(&mut self, key_pair: Arc<KeyPair>) -> String {
         let mut sign_string = vec![];
         if let Some(api_key) = &self.api_key {
             sign_string.push(format!("apiKey={}", api_key))
@@ -542,7 +553,7 @@ impl Signature for OrderStatus {
         signature(key_pair.secret_key.as_bytes(), sign_row.as_str())
     }
 
-    fn set_api_key(&mut self, key_pair: &KeyPair) {
+    fn set_api_key(&mut self, key_pair: Arc<KeyPair>) {
         self.api_key = Some(key_pair.api_key.clone());
     }
 
@@ -562,18 +573,18 @@ pub struct UserDataStream {
 }
 
 impl UserDataStream {
-    pub fn new(key_pair: &KeyPair) -> Self {
+    pub fn new(key_pair: Arc<KeyPair>) -> Self {
         UserDataStream {
             api_key: key_pair.api_key.clone(),
         }
     }
 }
 impl Signature for UserDataStream {
-    fn sign(&mut self, _key_pair: &KeyPair) -> String {
+    fn sign(&mut self, _key_pair: Arc<KeyPair>) -> String {
         "".to_string()
     }
 
-    fn set_api_key(&mut self, key_pair: &KeyPair) {
+    fn set_api_key(&mut self, key_pair: Arc<KeyPair>) {
         self.api_key = key_pair.api_key.clone();
     }
 

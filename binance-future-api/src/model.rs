@@ -16,7 +16,7 @@ pub struct RateLimit {
     pub count: i32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorDetail {
     pub code: i64,
@@ -446,6 +446,13 @@ pub struct ExchangeInformation {
 pub struct CancelAllOpenOrdersResp {
     pub code: u64,
     pub msg: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BatchOrderResp {
+    Order(OrderResp),
+    Error(ErrorDetail),
 }
 
 // test mod

@@ -1,17 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use log::{error, info};
+use log::{debug, error, info};
 use reqwest::{Client, Method};
 use tokio::time::{Duration, Instant};
 
 use base_util::time::current_time_millis;
 
-use crate::model::{
-    BookTickers, CancelAllOpenOrdersResp, EmptyBody, ErrorDetail, ExchangeInformation, OrderResp,
-    PositionRiskResp, ServerTime, UserDataStreamResp,
-};
-use crate::req_param::KeyPair;
+use crate::model::{BatchOrderResp, BookTickers, CancelAllOpenOrdersResp, EmptyBody, ErrorDetail, ExchangeInformation, OrderResp, PositionRiskResp, ServerTime, UserDataStreamResp};
+use crate::req_param::{KeyPair, OrderPlace};
 
 // ms
 const DEFAULT_TIMEOUT: u64 = 10_000;
@@ -37,9 +34,13 @@ impl FuturesApi {
     ) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_millis(timeout.unwrap_or(DEFAULT_TIMEOUT)))
-            .user_agent("rust-binance-futures-api/1.0") // Add a user agent
+            .user_agent("rust-binance-futures-api/1.0")
+            // .http2_prior_knowledge() // 跳过协议协商，强制使用 HTTP/2（需确保服务器支持）
+            .pool_idle_timeout(Some(Duration::from_secs(1800)))
+            .tcp_keepalive(Duration::from_secs(1800))
+            .pool_max_idle_per_host(20)
             .build()
-            .expect("Failed to build HTTP client"); // Improve error message
+            .expect("Failed to build HTTP client");
 
         FuturesApi {
             client,
@@ -53,13 +54,7 @@ impl FuturesApi {
     /// /fapi/v1/time
     pub async fn get_server_time(&self) -> Result<ServerTime, ErrorDetail> {
         let uri = "/fapi/v1/time";
-        let s = Instant::now();
-        let result = self
-            .send_request(Method::GET, uri)
-            .await?;
-        let elapsed = s.elapsed();
-        println!("get_server_time elapsed: {:?}", elapsed.as_millis());
-        result
+        self.send_request(Method::GET, uri).await
     }
 
     /// /fapi/v1/listenKey
@@ -134,7 +129,7 @@ impl FuturesApi {
     }
 
     /// GET /fapi/v1/order
-    pub async fn open_order(
+    pub async fn order(
         &self,
         symbol: &str,
         order_id: Option<u64>,
@@ -161,6 +156,80 @@ impl FuturesApi {
         }
         let uri = format!("/fapi/v1/order?{}", self.key_pair.signature(&params));
         self.send_request::<OrderResp>(Method::GET, &uri).await
+    }
+
+    /// POST /fapi/v1/order
+    pub async fn new_order(
+        &self,
+        mut req: OrderPlace
+    ) -> Result<OrderResp, ErrorDetail> {
+        let uri = format!("/fapi/v1/order?{}", self.key_pair.signature_str(&req.params_row()));
+        println!("uri: {}", uri);
+        self.send_request::<OrderResp>(Method::POST, &uri).await
+    }
+
+    /// /fapi/v1/batchOrders
+    ///
+    /// 其中batchOrders应以list of JSON格式填写订单参数
+    ///
+    /// 例子: /fapi/v1/batchOrders?batchOrders=[{"type":"LIMIT","timeInForce":"GTC",
+    /// "symbol":"BTCUSDT","side":"BUY","price":"10001","quantity":"0.001"}]
+    pub async fn batch_orders(
+        &self,
+        orders: Vec<OrderPlace>,
+    ) -> Result<Vec<BatchOrderResp>, ErrorDetail> {
+        todo!("Batch orders not implemented yet");
+        let mut params = HashMap::new();
+        params.insert(
+            "recvWindow",
+            self.recv_window.unwrap_or(DEFAULT_RECV_WINDOW).to_string(),
+        );
+        params.insert("timestamp", current_time_millis().to_string());
+        let batch_orders = serde_json::to_string(&orders).map_err(|e| {
+            ErrorDetail {
+                code: -1,
+                msg: format!("Failed to serialize orders: {}", e),
+            }
+        })?;
+        println!("batch_orders: {}", batch_orders);
+        params.insert("batchOrders", batch_orders);
+        let uri = format!("/fapi/v1/batchOrders?{}", self.key_pair.signature(&params));
+        self.send_request::<Vec<BatchOrderResp>>(Method::POST, &uri)
+            .await
+    }
+
+
+    /// GET /fapi/v1/openOrders
+    ///
+    /// 请求权重
+    /// + 带symbol 1
+    /// + 不带 40 请小心使用不带symbol参数的调用
+    pub async fn open_orders(
+        &self,
+        symbol: Option<&str>,
+    ) -> Result<Vec<OrderResp>, ErrorDetail> {
+        let mut params = HashMap::new();
+        if let Some(sym) = symbol {
+            params.insert("symbol", sym.to_lowercase());
+        }
+        params.insert(
+            "recvWindow",
+            self.recv_window.unwrap_or(DEFAULT_RECV_WINDOW).to_string(),
+        );
+        params.insert("timestamp", current_time_millis().to_string());
+        if let Some(sym) = symbol {
+            params.insert("symbol", sym.to_lowercase());
+        }
+        params.insert(
+            "recvWindow",
+            self.recv_window.unwrap_or(DEFAULT_RECV_WINDOW).to_string(),
+        );
+        let uri = format!(
+            "/fapi/v1/openOrders?{}",
+            self.key_pair.signature(&params)
+        );
+        self.send_request::<Vec<OrderResp>>(Method::GET, &uri)
+            .await
     }
 
     /// DELETE /fapi/v1/order
@@ -225,19 +294,24 @@ impl FuturesApi {
             .await
         {
             Ok(response) => {
-                if response.status().is_success() {
-                    match response.json::<T>().await {
+                let status_code = response.status();
+                let text = response.text().await.map_err(|e| ErrorDetail {
+                    code: -1,
+                    msg: format!("Failed to read response text: {}", e),
+                })?;
+                if status_code.is_success() {
+                    match serde_json::from_str::<T>(&text) {
                         Ok(data) => data,
                         Err(err) => {
                             error!("Failed to parse response: {}", err);
                             return Err(ErrorDetail {
                                 code: -1,
-                                msg: format!("Failed to parse response: {}", err),
+                                msg: format!("Failed to parse response: {}, text: {}", err, text),
                             });
                         }
                     }
                 } else {
-                    match response.json::<ErrorDetail>().await {
+                    match serde_json::from_str::<ErrorDetail>(&text) {
                         Ok(data) => Err(data),
                         Err(err) => Err(ErrorDetail {
                             code: -1,
@@ -255,7 +329,7 @@ impl FuturesApi {
         };
 
         let elapsed_time = start_time.elapsed(); // Calculate elapsed time
-        info!(
+        debug!(
             "Request to {} completed in {} ms",
             url,
             elapsed_time.as_millis()
@@ -267,8 +341,10 @@ impl FuturesApi {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
     use reqwest::Method;
-
+    use rust_decimal::Decimal;
+    use crate::model::{OrderSide, PositionSide, TimeInForce};
     use crate::req_param::KeyPair;
 
     use super::*;
@@ -388,11 +464,72 @@ mod tests {
         let (key_pair, base_url) = init();
         let api = FuturesApi::new(base_url.as_str(), Arc::new(key_pair), None, None);
         match api
-            .open_order("BTCUSDT1", None, Some("test_order"))
+            .order("BTCUSDT1", None, Some("test_order"))
             .await
         {
             Ok(resp) => println!("{:#?}", resp),
             Err(e) => eprintln!("Error: {:?}", e),
         }
     }
+
+    #[tokio::test]
+    async fn test_open_orders() {
+        let (key_pair, base_url) = init();
+        let api = FuturesApi::new(base_url.as_str(), Arc::new(key_pair), None, None);
+        match api.open_orders(None).await {
+            Ok(resp) => println!("{:#?}", resp),
+            Err(e) => eprintln!("Error: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_new_order() {
+        let (key_pair, base_url) = init();
+        let key_pair = Arc::new(key_pair);
+        let api = FuturesApi::new(base_url.as_str(), key_pair.clone(), None, None);
+        let place_market = OrderPlace::place_market(
+            key_pair.clone(),
+            "BTCUSDT",
+            &OrderSide::Buy,
+            &PositionSide::Long,
+            &Decimal::from_str("0.01").unwrap(),
+            Some("test_order_id"),
+        );
+
+        match api.new_order(place_market).await {
+            Ok(resp) => println!("{:#?}", resp),
+            Err(e) => eprintln!("Error: {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_batch_orders() {
+        let (key_pair, base_url) = init();
+        let key_pair = Arc::new(key_pair);
+        let api = FuturesApi::new(base_url.as_str(), key_pair.clone() , None, None);
+        let place_market = OrderPlace::place_market(
+            key_pair.clone(),
+            "BTCUSDT",
+            &OrderSide::Buy,
+            &PositionSide::Long,
+            &Decimal::from_str("0.01").unwrap(),
+            Some("test_order_id_1"),
+        );
+        let place_limit = OrderPlace::place_limit(
+            key_pair.clone(),
+            "BTCUSDT",
+            &OrderSide::Buy,
+            &PositionSide::Long,
+            &Decimal::from_str("0.01").unwrap(),
+            &Decimal::from_str("80000").unwrap(),
+            Some("test_order_id"),
+            TimeInForce::GTC,
+            Some(9999_9999),
+        );
+        match api.batch_orders(vec![place_market, place_limit]).await {
+            Ok(resp) => println!("{:#?}", resp),
+            Err(e) => eprintln!("Error: {:?}", e),
+        }
+    }
+
 }

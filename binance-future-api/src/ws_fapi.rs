@@ -179,7 +179,7 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-
+    use std::sync::Arc;
     use log::info;
     use rust_decimal::Decimal;
     use tokio::runtime::Runtime;
@@ -209,18 +209,18 @@ mod tests {
         let runtime = setup();
 
         runtime.block_on(async {
-            let key_pair = KeyPair {
+            let key_pair = Arc::new(KeyPair {
                 api_key: "3ec340c3bf6399c711d2b0e34f8cefff48c2aed984c7c5157c813810a027ee45"
                     .to_string(),
                 secret_key: "559052c703589a3f5259395c240c524a3bc7d98cac89f9c3d0e54f1ba5a48477"
                     .to_string(),
-            };
+            });
             let base_url = "wss://testnet.binancefuture.com/ws-fapi/v1";
             let (mut resp_rx, req_tx) = start_ws_fapi(base_url).await;
 
             info!("WebSocket connection established. Listening for messages...");
             let place_market = OrderPlace::place_market(
-                &key_pair,
+                key_pair.clone(),
                 "BTCUSDT",
                 &OrderSide::Buy,
                 &PositionSide::Long,
@@ -228,7 +228,7 @@ mod tests {
                 Some("test_order_id"),
             );
             let place_limit = OrderPlace::place_limit(
-                &key_pair,
+                key_pair.clone(),
                 "BTCUSDT",
                 &OrderSide::Buy,
                 &PositionSide::Long,
@@ -289,12 +289,12 @@ mod tests {
         let runtime = setup();
 
         runtime.block_on(async {
-            let key_pair = KeyPair {
+            let key_pair = Arc::new(KeyPair {
                 api_key: "3ec340c3bf6399c711d2b0e34f8cefff48c2aed984c7c5157c813810a027ee45"
                     .to_string(),
                 secret_key: "559052c703589a3f5259395c240c524a3bc7d98cac89f9c3d0e54f1ba5a48477"
                     .to_string(),
-            };
+            });
 
             let (tx, mut rx) = tokio::sync::mpsc::channel(1024 * 8);
 
@@ -317,7 +317,7 @@ mod tests {
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
             let place_market = OrderPlace::place_market(
-                &key_pair,
+                key_pair.clone(),
                 "BTCUSDT",
                 &OrderSide::Buy,
                 &PositionSide::Long,
@@ -329,7 +329,7 @@ mod tests {
 
             // place limit
             let place_limit = OrderPlace::place_limit(
-                &key_pair,
+                key_pair.clone(),
                 "BTCUSDT",
                 &OrderSide::Buy,
                 &PositionSide::Long,
@@ -344,13 +344,13 @@ mod tests {
             let time_req = BaseReq::new("time", WsReqMethod::Time);
             let ping_req = BaseReq::new("ping", WsReqMethod::Ping);
 
-            let position_risk = PositionRisk::new(&key_pair, None, None);
+            let position_risk = PositionRisk::new(key_pair.clone(), None, None);
             let position_risk_req =
                 BaseReq::new("position_risk", WsReqMethod::PositionRisk(position_risk));
 
             // 4372849252
             let cancel_order = CancelOrder::new(
-                &key_pair,
+                key_pair.clone(),
                 "BTCUSDT",
                 None,
                 Some("test_order_id"),
@@ -360,7 +360,7 @@ mod tests {
                 BaseReq::new("cancel_order", WsReqMethod::CancelOrder(cancel_order));
 
             let order_status = OrderStatus::new(
-                &key_pair,
+                key_pair.clone(),
                 "BTCUSDT",
                 None,
                 Some("test_order_id"),
@@ -371,15 +371,15 @@ mod tests {
 
             let user_data_stream_start_req = BaseReq::new(
                 "user_data_stream_start",
-                WsReqMethod::UserDataStreamStart(UserDataStream::new(&key_pair)),
+                WsReqMethod::UserDataStreamStart(UserDataStream::new(key_pair.clone())),
             );
             let user_data_stream_ping_req = BaseReq::new(
                 "user_data_stream_ping",
-                WsReqMethod::UserDataStreamPing(UserDataStream::new(&key_pair)),
+                WsReqMethod::UserDataStreamPing(UserDataStream::new(key_pair.clone())),
             );
             let user_data_stream_stop_req = BaseReq::new(
                 "user_data_stream_stop",
-                WsReqMethod::UserDataStreamStop(UserDataStream::new(&key_pair)),
+                WsReqMethod::UserDataStreamStop(UserDataStream::new(key_pair.clone())),
             );
             let reqs = vec![
                 place_market_req,

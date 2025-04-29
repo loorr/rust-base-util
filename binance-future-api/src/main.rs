@@ -1,5 +1,5 @@
 use std::str::FromStr;
-
+use std::sync::Arc;
 use log::info;
 use rust_decimal::Decimal;
 
@@ -10,16 +10,16 @@ use binance_future_api::ws_fapi::start_ws_fapi;
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let key_pair = KeyPair {
+    let key_pair = Arc::new(KeyPair {
         api_key: "3ec340c3bf6399c711d2b0e34f8cefff48c2aed984c7c5157c813810a027ee45".to_string(),
         secret_key: "559052c703589a3f5259395c240c524a3bc7d98cac89f9c3d0e54f1ba5a48477".to_string(),
-    };
+    });
     let base_url = "wss://testnet.binancefuture.com/ws-fapi/v1";
     let (mut resp_rx, req_tx) = start_ws_fapi(base_url).await;
 
     info!("WebSocket connection established. Listening for messages...");
     let place_market = OrderPlace::place_market(
-        &key_pair,
+        key_pair.clone(),
         "BTCUSDT",
         &OrderSide::Buy,
         &PositionSide::Long,
@@ -27,7 +27,7 @@ async fn main() {
         Some("test_order_id"),
     );
     let place_limit = OrderPlace::place_limit(
-        &key_pair,
+        key_pair.clone(),
         "BTCUSDT",
         &OrderSide::Buy,
         &PositionSide::Long,
