@@ -23,7 +23,6 @@ struct ReqTrack {
     resp_time: Option<u64>,
 }
 
-
 // 返回 发送订单 和 接受消息结果
 // 是否能转换为同步调用, 通过wake机制
 // 发送订单后, 监听消息里面的id, 匹配
@@ -41,9 +40,11 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             info!("Received message: {:?}", msg);
-            let response: ApiResponse = serde_json::from_str(msg.as_str()).map_err(|e| {
-                info!("Error parsing message: {:?}", e);
-            }).unwrap();
+            let response: ApiResponse = serde_json::from_str(msg.as_str())
+                .map_err(|e| {
+                    info!("Error parsing message: {:?}", e);
+                })
+                .unwrap();
 
             // 移除匹配id
             match &response {
@@ -68,9 +69,13 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
                 ApiResponse::RawData(_) => {}
             }
 
-            resp_tx.send(response).await.map_err(|e| {
-                info!("Error sending message: {:?}", e);
-            }).unwrap();
+            resp_tx
+                .send(response)
+                .await
+                .map_err(|e| {
+                    info!("Error sending message: {:?}", e);
+                })
+                .unwrap();
         }
     });
 
@@ -82,15 +87,40 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
             // 取前几位
             let uuid = &uuid.to_string()[..8];
             let base_req = match ws_req {
-                WsReqMethod::OrderPlace(req) => BaseReq::new(format!("newOrder_{uuid}").as_str(), WsReqMethod::OrderPlace(req)),
-                WsReqMethod::CancelOrder(req) => BaseReq::new(format!("cancelOrder_{uuid}").as_str(), WsReqMethod::CancelOrder(req)),
-                WsReqMethod::PositionRisk(req) => BaseReq::new(format!("positionRisk_{uuid}").as_str(), WsReqMethod::PositionRisk(req)),
-                WsReqMethod::OrderStatus(req) => BaseReq::new(format!("orderStatus_{uuid}").as_str(), WsReqMethod::OrderStatus(req)),
-                WsReqMethod::UserDataStreamStart(req) => BaseReq::new(format!("userDataStreamStart_{uuid}").as_str(), WsReqMethod::UserDataStreamStart(req)),
-                WsReqMethod::UserDataStreamPing(req) => BaseReq::new(format!("userDataStreamPing_{uuid}").as_str(), WsReqMethod::UserDataStreamPing(req)),
-                WsReqMethod::UserDataStreamStop(req) => BaseReq::new(format!("userDataStreamPtop_{uuid}").as_str(), WsReqMethod::UserDataStreamStop(req)),
-                WsReqMethod::Time => BaseReq::new(format!("ping_{uuid}").as_str(), WsReqMethod::Time),
-                WsReqMethod::Ping => BaseReq::new(format!("time_{uuid}").as_str(), WsReqMethod::Ping)
+                WsReqMethod::OrderPlace(req) => BaseReq::new(
+                    format!("newOrder_{uuid}").as_str(),
+                    WsReqMethod::OrderPlace(req),
+                ),
+                WsReqMethod::CancelOrder(req) => BaseReq::new(
+                    format!("cancelOrder_{uuid}").as_str(),
+                    WsReqMethod::CancelOrder(req),
+                ),
+                WsReqMethod::PositionRisk(req) => BaseReq::new(
+                    format!("positionRisk_{uuid}").as_str(),
+                    WsReqMethod::PositionRisk(req),
+                ),
+                WsReqMethod::OrderStatus(req) => BaseReq::new(
+                    format!("orderStatus_{uuid}").as_str(),
+                    WsReqMethod::OrderStatus(req),
+                ),
+                WsReqMethod::UserDataStreamStart(req) => BaseReq::new(
+                    format!("userDataStreamStart_{uuid}").as_str(),
+                    WsReqMethod::UserDataStreamStart(req),
+                ),
+                WsReqMethod::UserDataStreamPing(req) => BaseReq::new(
+                    format!("userDataStreamPing_{uuid}").as_str(),
+                    WsReqMethod::UserDataStreamPing(req),
+                ),
+                WsReqMethod::UserDataStreamStop(req) => BaseReq::new(
+                    format!("userDataStreamPtop_{uuid}").as_str(),
+                    WsReqMethod::UserDataStreamStop(req),
+                ),
+                WsReqMethod::Time => {
+                    BaseReq::new(format!("ping_{uuid}").as_str(), WsReqMethod::Time)
+                }
+                WsReqMethod::Ping => {
+                    BaseReq::new(format!("time_{uuid}").as_str(), WsReqMethod::Ping)
+                }
             };
             info!("Sending request: {:?}", base_req);
             let mut track = ReqTrack {
@@ -101,7 +131,10 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
             };
 
             loop {
-                match client_arc.send_message(&base_req.serialize().as_str()).await {
+                match client_arc
+                    .send_message(&base_req.serialize().as_str())
+                    .await
+                {
                     Ok(_) => {
                         break;
                     }
@@ -128,8 +161,10 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
                     info!(
                         "Pending response for id: {}, send cost: {} us, receive cost: {} us",
                         track.id,
-                        (track.end_send_time.unwrap() - track.start_send_time.unwrap_or(0)) as f64 / 1000.0,
-                        (track.resp_time.unwrap() - track.start_send_time.unwrap_or(0)) as f64 / 1000.0
+                        (track.end_send_time.unwrap() - track.start_send_time.unwrap_or(0)) as f64
+                            / 1000.0,
+                        (track.resp_time.unwrap() - track.start_send_time.unwrap_or(0)) as f64
+                            / 1000.0
                     );
                 }
             }
@@ -140,7 +175,6 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
     });
     (resp_rx, outbound_tx)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -153,7 +187,10 @@ mod tests {
     use base_util::ws::WsClient;
 
     use crate::model::{ApiResponse, OrderSide, PositionSide, ResultType, TimeInForce};
-    use crate::req_param::{BaseReq, CancelOrder, KeyPair, OrderPlace, OrderStatus, PositionRisk, UserDataStream, WsReqMethod};
+    use crate::req_param::{
+        BaseReq, CancelOrder, KeyPair, OrderPlace, OrderStatus, PositionRisk, UserDataStream,
+        WsReqMethod,
+    };
     use crate::ws_fapi::start_ws_fapi;
 
     fn setup() -> Runtime {
@@ -173,8 +210,10 @@ mod tests {
 
         runtime.block_on(async {
             let key_pair = KeyPair {
-                api_key: "3ec340c3bf6399c711d2b0e34f8cefff48c2aed984c7c5157c813810a027ee45".to_string(),
-                secret_key: "559052c703589a3f5259395c240c524a3bc7d98cac89f9c3d0e54f1ba5a48477".to_string(),
+                api_key: "3ec340c3bf6399c711d2b0e34f8cefff48c2aed984c7c5157c813810a027ee45"
+                    .to_string(),
+                secret_key: "559052c703589a3f5259395c240c524a3bc7d98cac89f9c3d0e54f1ba5a48477"
+                    .to_string(),
             };
             let base_url = "wss://testnet.binancefuture.com/ws-fapi/v1";
             let (mut resp_rx, req_tx) = start_ws_fapi(base_url).await;
@@ -200,9 +239,15 @@ mod tests {
                 Some(9999_9999),
             );
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            req_tx.send(WsReqMethod::OrderPlace(place_market)).await.unwrap();
+            req_tx
+                .send(WsReqMethod::OrderPlace(place_market))
+                .await
+                .unwrap();
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            req_tx.send(WsReqMethod::OrderPlace(place_limit)).await.unwrap();
+            req_tx
+                .send(WsReqMethod::OrderPlace(place_limit))
+                .await
+                .unwrap();
             req_tx.send(WsReqMethod::Ping).await.unwrap();
 
             tokio::spawn(async move {
@@ -211,25 +256,23 @@ mod tests {
                         ApiResponse::Error(err) => {
                             info!("Error: {:?}", err);
                         }
-                        ApiResponse::Success(row_data) => {
-                            match row_data.result {
-                                ResultType::Order(data) => {
-                                    info!("Order data: {:#?}", data);
-                                }
-                                ResultType::PositionRisk(data) => {
-                                    info!("Position risk data: {:?}", data);
-                                }
-                                ResultType::UserDataStream(data) => {
-                                    info!("User data stream: {:?}", data);
-                                }
-                                ResultType::ServerTime(data) => {
-                                    info!("Server time: {:?}", data);
-                                }
-                                ResultType::EmptyBody(data) => {
-                                    info!("Empty body: {:?}", data);
-                                }
+                        ApiResponse::Success(row_data) => match row_data.result {
+                            ResultType::Order(data) => {
+                                info!("Order data: {:#?}", data);
                             }
-                        }
+                            ResultType::PositionRisk(data) => {
+                                info!("Position risk data: {:?}", data);
+                            }
+                            ResultType::UserDataStream(data) => {
+                                info!("User data stream: {:?}", data);
+                            }
+                            ResultType::ServerTime(data) => {
+                                info!("Server time: {:?}", data);
+                            }
+                            ResultType::EmptyBody(data) => {
+                                info!("Empty body: {:?}", data);
+                            }
+                        },
                         ApiResponse::RawData(row_data) => {
                             info!("Raw data: {:?}", row_data);
                         }
@@ -241,15 +284,16 @@ mod tests {
         });
     }
 
-
     #[test]
     fn test_aync() {
         let runtime = setup();
 
         runtime.block_on(async {
             let key_pair = KeyPair {
-                api_key: "3ec340c3bf6399c711d2b0e34f8cefff48c2aed984c7c5157c813810a027ee45".to_string(),
-                secret_key: "559052c703589a3f5259395c240c524a3bc7d98cac89f9c3d0e54f1ba5a48477".to_string(),
+                api_key: "3ec340c3bf6399c711d2b0e34f8cefff48c2aed984c7c5157c813810a027ee45"
+                    .to_string(),
+                secret_key: "559052c703589a3f5259395c240c524a3bc7d98cac89f9c3d0e54f1ba5a48477"
+                    .to_string(),
             };
 
             let (tx, mut rx) = tokio::sync::mpsc::channel(1024 * 8);
@@ -280,7 +324,8 @@ mod tests {
                 &Decimal::from_str("0.01").unwrap(),
                 Some("test_order_id"),
             );
-            let place_market_req = BaseReq::new("place_market", WsReqMethod::OrderPlace(place_market));
+            let place_market_req =
+                BaseReq::new("place_market", WsReqMethod::OrderPlace(place_market));
 
             // place limit
             let place_limit = OrderPlace::place_limit(
@@ -300,7 +345,8 @@ mod tests {
             let ping_req = BaseReq::new("ping", WsReqMethod::Ping);
 
             let position_risk = PositionRisk::new(&key_pair, None, None);
-            let position_risk_req = BaseReq::new("position_risk", WsReqMethod::PositionRisk(position_risk));
+            let position_risk_req =
+                BaseReq::new("position_risk", WsReqMethod::PositionRisk(position_risk));
 
             // 4372849252
             let cancel_order = CancelOrder::new(
@@ -310,7 +356,8 @@ mod tests {
                 Some("test_order_id"),
                 Some(9999_9999),
             );
-            let cancel_order_req = BaseReq::new("cancel_order", WsReqMethod::CancelOrder(cancel_order));
+            let cancel_order_req =
+                BaseReq::new("cancel_order", WsReqMethod::CancelOrder(cancel_order));
 
             let order_status = OrderStatus::new(
                 &key_pair,
@@ -319,7 +366,8 @@ mod tests {
                 Some("test_order_id"),
                 Some(9999_9999),
             );
-            let order_status_req = BaseReq::new("order_status", WsReqMethod::OrderStatus(order_status));
+            let order_status_req =
+                BaseReq::new("order_status", WsReqMethod::OrderStatus(order_status));
 
             let user_data_stream_start_req = BaseReq::new(
                 "user_data_stream_start",

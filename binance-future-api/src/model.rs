@@ -254,7 +254,6 @@ pub struct PositionRiskResp {
     pub update_time: u64,
 }
 
-
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BookTickers {
@@ -268,7 +267,6 @@ pub struct BookTickers {
     #[serde(with = "string_or_float")]
     pub ask_qty: f64,
 }
-
 
 /// Rate Limit Interval, used by RateLimitType
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -441,6 +439,13 @@ pub struct ExchangeInformation {
     pub exchange_filters: Vec<Filters>,
     pub assets: Vec<AssetDetail>,
     pub symbols: Vec<Symbol>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelAllOpenOrdersResp {
+    pub code: u64,
+    pub msg: String,
 }
 
 // test mod

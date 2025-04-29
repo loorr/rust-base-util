@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
@@ -7,9 +7,9 @@ use log::{error, info, warn};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{interval, sleep};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Utf8Bytes;
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 /// WebSocket client
 /// params:

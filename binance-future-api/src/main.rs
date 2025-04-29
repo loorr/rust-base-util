@@ -4,10 +4,7 @@ use log::info;
 use rust_decimal::Decimal;
 
 use binance_future_api::model::{ApiResponse, OrderSide, PositionSide, ResultType, TimeInForce};
-use binance_future_api::req_param::{
-    KeyPair, OrderPlace,
-    WsReqMethod,
-};
+use binance_future_api::req_param::{KeyPair, OrderPlace, WsReqMethod};
 use binance_future_api::ws_fapi::start_ws_fapi;
 
 #[tokio::main]
@@ -41,9 +38,15 @@ async fn main() {
         Some(9999_9999),
     );
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    req_tx.send(WsReqMethod::OrderPlace(place_market)).await.unwrap();
+    req_tx
+        .send(WsReqMethod::OrderPlace(place_market))
+        .await
+        .unwrap();
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    req_tx.send(WsReqMethod::OrderPlace(place_limit)).await.unwrap();
+    req_tx
+        .send(WsReqMethod::OrderPlace(place_limit))
+        .await
+        .unwrap();
     req_tx.send(WsReqMethod::Ping).await.unwrap();
 
     tokio::spawn(async move {
@@ -52,25 +55,23 @@ async fn main() {
                 ApiResponse::Error(err) => {
                     println!("Error: {:?}", err);
                 }
-                ApiResponse::Success(row_data) => {
-                    match row_data.result {
-                        ResultType::Order(data) => {
-                            println!("Order data: {:#?}", data);
-                        }
-                        ResultType::PositionRisk(data) => {
-                            println!("Position risk data: {:?}", data);
-                        }
-                        ResultType::UserDataStream(data) => {
-                            println!("User data stream: {:?}", data);
-                        }
-                        ResultType::ServerTime(data) => {
-                            println!("Server time: {:?}", data);
-                        }
-                        ResultType::EmptyBody(data) => {
-                            println!("Empty body: {:?}", data);
-                        }
+                ApiResponse::Success(row_data) => match row_data.result {
+                    ResultType::Order(data) => {
+                        println!("Order data: {:#?}", data);
                     }
-                }
+                    ResultType::PositionRisk(data) => {
+                        println!("Position risk data: {:?}", data);
+                    }
+                    ResultType::UserDataStream(data) => {
+                        println!("User data stream: {:?}", data);
+                    }
+                    ResultType::ServerTime(data) => {
+                        println!("Server time: {:?}", data);
+                    }
+                    ResultType::EmptyBody(data) => {
+                        println!("Empty body: {:?}", data);
+                    }
+                },
                 ApiResponse::RawData(row_data) => {
                     println!("Raw data: {:?}", row_data);
                 }
