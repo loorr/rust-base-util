@@ -63,7 +63,7 @@ pub enum WsReqMethod {
     OrderPlace(OrderPlace),
     CancelOrder(CancelOrder),
     PositionRisk(PositionRisk),
-    OrderStatus(OrderStatus),
+    OrderStatus(OrderStatusReq),
     UserDataStreamStart(UserDataStream),
     UserDataStreamPing(UserDataStream),
     UserDataStreamStop(UserDataStream),
@@ -489,7 +489,7 @@ impl Signature for PositionRisk {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OrderStatus {
+pub struct OrderStatusReq {
     pub api_key: Option<String>,
     pub signature: Option<String>,
     pub symbol: String,
@@ -504,7 +504,7 @@ pub struct OrderStatus {
     pub timestamp: Option<u64>,
 }
 
-impl OrderStatus {
+impl OrderStatusReq {
     pub fn new(
         key_pair: Arc<KeyPair>,
         symbol: &str,
@@ -512,7 +512,7 @@ impl OrderStatus {
         orig_client_order_id: Option<&str>,
         recv_window: Option<u64>,
     ) -> Self {
-        let mut req = OrderStatus {
+        let mut req = OrderStatusReq {
             api_key: Some(key_pair.api_key.clone()),
             symbol: symbol.to_string(),
             order_id,
@@ -527,7 +527,7 @@ impl OrderStatus {
     }
 }
 
-impl Signature for OrderStatus {
+impl Signature for OrderStatusReq {
     fn sign(&mut self, key_pair: Arc<KeyPair>) -> String {
         let mut sign_string = vec![];
         if let Some(api_key) = &self.api_key {

@@ -163,6 +163,42 @@ pub enum WorkingType {
     ContractPrice,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PriceMatch {
+    /// No price match
+    None,
+    /// Counterparty best price
+    Opponent,
+    /// The 5th best price from the counterparty
+    Opponent5,
+    /// The 10th best price from the counterparty
+    Opponent10,
+    /// The 20th best price from the counterparty
+    Opponent20,
+    /// The best price on the same side of the order book
+    Queue,
+    /// The 5th best price on the same side of the order book
+    Queue5,
+    /// The 10th best price on the same side of the order book
+    Queue10,
+    /// The 20th best price on the same side of the order book
+    Queue20,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SelfTradePreventionMode {
+    /// No Self-Trade Prevention
+    None,
+    /// Expire taker order when STP trigger
+    ExpireTaker,
+    /// Expire taker and maker order when STP trigger
+    ExpireBoth,
+    /// Expire maker order when STP trigger
+    ExpireMaker,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderResp {
@@ -453,6 +489,27 @@ pub struct CancelAllOpenOrdersResp {
 pub enum BatchOrderResp {
     Order(OrderResp),
     Error(ErrorDetail),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExecutionType {
+    /// The order has been accepted into the engine.
+    New,
+    /// The order has been canceled by the user.
+    Canceled,
+    /// Currently unused
+    Replaced,
+    /// The order has been rejected and was not processed (This message appears only with Cancel Replace Orders wherein the new order placement is rejected but the request to cancel request succeeds.)
+    Rejected,
+    /// Part of the order or all of the order's quantity has filled.
+    Trade,
+    /// The order was canceled according to the order type's rules (e.g. LIMIT FOK orders with no fill, LIMIT IOC or MARKET orders that partially fill) or by the exchange, (e.g. orders canceled during liquidation, orders canceled during maintenance).
+    Expired,
+    /// The order has expired due to STP trigger.
+    TradePrevention,
+    /// Order modified
+    Amendment,
 }
 
 // test mod

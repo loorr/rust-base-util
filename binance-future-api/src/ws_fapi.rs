@@ -188,7 +188,7 @@ mod tests {
 
     use crate::model::{ApiResponse, OrderSide, PositionSide, ResultType, TimeInForce};
     use crate::req_param::{
-        BaseReq, CancelOrder, KeyPair, OrderPlace, OrderStatus, PositionRisk, UserDataStream,
+        BaseReq, CancelOrder, KeyPair, OrderPlace, OrderStatusReq, PositionRisk, UserDataStream,
         WsReqMethod,
     };
     use crate::ws_fapi::start_ws_fapi;
@@ -359,7 +359,7 @@ mod tests {
             let cancel_order_req =
                 BaseReq::new("cancel_order", WsReqMethod::CancelOrder(cancel_order));
 
-            let order_status = OrderStatus::new(
+            let order_status = OrderStatusReq::new(
                 key_pair.clone(),
                 "BTCUSDT",
                 None,

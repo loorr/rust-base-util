@@ -18,7 +18,7 @@ const DEFAULT_TIMEOUT: u64 = 10_000;
 const DEFAULT_RECV_WINDOW: u64 = 9999_999;
 const DEFAULT_MBX_APIKEY: &str = "X-MBX-APIKEY";
 
-struct FuturesApi {
+pub struct FuturesApi {
     client: Client,
     base_url: String,
     recv_window: Option<u64>,
