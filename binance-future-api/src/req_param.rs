@@ -1,10 +1,10 @@
+use base_util::signature::signature;
+use base_util::time::current_time_millis;
 use log::{debug, error};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use base_util::signature::signature;
-use base_util::time::current_time_millis;
 
 use crate::model::{OrderSide, PositionSide, TimeInForce};
 
@@ -187,7 +187,6 @@ pub struct OrderPlace {
 }
 
 impl OrderPlace {
-
     pub fn params_row(&mut self) -> String {
         let mut sign_string = vec![];
         if let Some(api_key) = &self.api_key {

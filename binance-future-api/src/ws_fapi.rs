@@ -178,10 +178,10 @@ pub async fn start_ws_fapi(base_url: &str) -> (Receiver<ApiResponse>, Sender<WsR
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use std::sync::Arc;
     use log::info;
     use rust_decimal::Decimal;
+    use std::str::FromStr;
+    use std::sync::Arc;
     use tokio::runtime::Runtime;
 
     use base_util::ws::WsClient;

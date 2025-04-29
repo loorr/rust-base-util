@@ -7,7 +7,10 @@ use tokio::time::{Duration, Instant};
 
 use base_util::time::current_time_millis;
 
-use crate::model::{BatchOrderResp, BookTickers, CancelAllOpenOrdersResp, EmptyBody, ErrorDetail, ExchangeInformation, OrderResp, PositionRiskResp, ServerTime, UserDataStreamResp};
+use crate::model::{
+    BatchOrderResp, BookTickers, CancelAllOpenOrdersResp, EmptyBody, ErrorDetail,
+    ExchangeInformation, OrderResp, PositionRiskResp, ServerTime, UserDataStreamResp,
+};
 use crate::req_param::{KeyPair, OrderPlace};
 
 // ms
@@ -22,8 +25,6 @@ struct FuturesApi {
     timeout: Option<u64>,
     key_pair: Arc<KeyPair>,
 }
-
-
 
 impl FuturesApi {
     pub fn new(
@@ -91,10 +92,7 @@ impl FuturesApi {
     }
 
     /// /fapi/v3/positionRisk
-    pub async fn position_risk(
-        &self,
-        symbol: &str,
-    ) -> Result<Vec<PositionRiskResp>, ErrorDetail> {
+    pub async fn position_risk(&self, symbol: &str) -> Result<Vec<PositionRiskResp>, ErrorDetail> {
         let params = format!(
             "symbol={}&recvWindow={}&timestamp={}",
             symbol.to_lowercase(),
@@ -159,11 +157,11 @@ impl FuturesApi {
     }
 
     /// POST /fapi/v1/order
-    pub async fn new_order(
-        &self,
-        mut req: OrderPlace
-    ) -> Result<OrderResp, ErrorDetail> {
-        let uri = format!("/fapi/v1/order?{}", self.key_pair.signature_str(&req.params_row()));
+    pub async fn new_order(&self, mut req: OrderPlace) -> Result<OrderResp, ErrorDetail> {
+        let uri = format!(
+            "/fapi/v1/order?{}",
+            self.key_pair.signature_str(&req.params_row())
+        );
         println!("uri: {}", uri);
         self.send_request::<OrderResp>(Method::POST, &uri).await
     }
@@ -185,11 +183,9 @@ impl FuturesApi {
             self.recv_window.unwrap_or(DEFAULT_RECV_WINDOW).to_string(),
         );
         params.insert("timestamp", current_time_millis().to_string());
-        let batch_orders = serde_json::to_string(&orders).map_err(|e| {
-            ErrorDetail {
-                code: -1,
-                msg: format!("Failed to serialize orders: {}", e),
-            }
+        let batch_orders = serde_json::to_string(&orders).map_err(|e| ErrorDetail {
+            code: -1,
+            msg: format!("Failed to serialize orders: {}", e),
         })?;
         println!("batch_orders: {}", batch_orders);
         params.insert("batchOrders", batch_orders);
@@ -198,16 +194,12 @@ impl FuturesApi {
             .await
     }
 
-
     /// GET /fapi/v1/openOrders
     ///
     /// 请求权重
     /// + 带symbol 1
     /// + 不带 40 请小心使用不带symbol参数的调用
-    pub async fn open_orders(
-        &self,
-        symbol: Option<&str>,
-    ) -> Result<Vec<OrderResp>, ErrorDetail> {
+    pub async fn open_orders(&self, symbol: Option<&str>) -> Result<Vec<OrderResp>, ErrorDetail> {
         let mut params = HashMap::new();
         if let Some(sym) = symbol {
             params.insert("symbol", sym.to_lowercase());
@@ -224,12 +216,8 @@ impl FuturesApi {
             "recvWindow",
             self.recv_window.unwrap_or(DEFAULT_RECV_WINDOW).to_string(),
         );
-        let uri = format!(
-            "/fapi/v1/openOrders?{}",
-            self.key_pair.signature(&params)
-        );
-        self.send_request::<Vec<OrderResp>>(Method::GET, &uri)
-            .await
+        let uri = format!("/fapi/v1/openOrders?{}", self.key_pair.signature(&params));
+        self.send_request::<Vec<OrderResp>>(Method::GET, &uri).await
     }
 
     /// DELETE /fapi/v1/order
@@ -325,7 +313,7 @@ impl FuturesApi {
                     code: -1,
                     msg: format!("Request failed: {}", err),
                 })
-            }?
+            }?,
         };
 
         let elapsed_time = start_time.elapsed(); // Calculate elapsed time
@@ -341,11 +329,11 @@ impl FuturesApi {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use reqwest::Method;
-    use rust_decimal::Decimal;
     use crate::model::{OrderSide, PositionSide, TimeInForce};
     use crate::req_param::KeyPair;
+    use reqwest::Method;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
 
     use super::*;
 
@@ -463,10 +451,7 @@ mod tests {
     async fn test_open_order() {
         let (key_pair, base_url) = init();
         let api = FuturesApi::new(base_url.as_str(), Arc::new(key_pair), None, None);
-        match api
-            .order("BTCUSDT1", None, Some("test_order"))
-            .await
-        {
+        match api.order("BTCUSDT1", None, Some("test_order")).await {
             Ok(resp) => println!("{:#?}", resp),
             Err(e) => eprintln!("Error: {:?}", e),
         }
@@ -506,7 +491,7 @@ mod tests {
     async fn test_batch_orders() {
         let (key_pair, base_url) = init();
         let key_pair = Arc::new(key_pair);
-        let api = FuturesApi::new(base_url.as_str(), key_pair.clone() , None, None);
+        let api = FuturesApi::new(base_url.as_str(), key_pair.clone(), None, None);
         let place_market = OrderPlace::place_market(
             key_pair.clone(),
             "BTCUSDT",
@@ -531,5 +516,4 @@ mod tests {
             Err(e) => eprintln!("Error: {:?}", e),
         }
     }
-
 }

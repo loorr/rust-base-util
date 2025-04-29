@@ -1,7 +1,7 @@
-use std::str::FromStr;
-use std::sync::Arc;
 use log::info;
 use rust_decimal::Decimal;
+use std::str::FromStr;
+use std::sync::Arc;
 
 use binance_future_api::model::{ApiResponse, OrderSide, PositionSide, ResultType, TimeInForce};
 use binance_future_api::req_param::{KeyPair, OrderPlace, WsReqMethod};
